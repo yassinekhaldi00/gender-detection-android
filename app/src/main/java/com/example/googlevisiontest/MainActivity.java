@@ -13,13 +13,19 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
+import android.hardware.Camera;
+import android.media.ExifInterface;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -47,7 +53,10 @@ import android.app.Activity;
 
 import android.os.Bundle;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -58,13 +67,19 @@ public class MainActivity extends AppCompatActivity {
     Button btnUpload;
     Button btnProgress;
     TextView textView;
+    Button btnCamera;
 
     private static final int IMAGE_PICK_CODE = 1000;
     private static final int PERMISSION_CODE = 1001;
+    private static final int IMAGE_CAMERA_CODE = 1002;
+    private static final int PERMISSION_CAMERA_CODE = 1003;
 
     Bitmap eyePatchBitmap;
     Bitmap flowerLine;
     Canvas canvas;
+
+    Uri mImageCaptureUri;
+    Boolean processingGranted = false;
 
     Paint rectPaint = new Paint();
 
@@ -76,6 +91,7 @@ public class MainActivity extends AppCompatActivity {
         btnUpload = (Button) findViewById(R.id.btnUpload);
         btnProgress = (Button)findViewById(R.id.btnProgress);
         textView = (TextView) findViewById(R.id.textView);
+        btnCamera=(Button)findViewById(R.id.btnCamera);
 
         btnUpload.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -101,50 +117,89 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        btnCamera.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
+                    if(checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED){
+                        // permision not granted, request it
+                        String [] permissions = {Manifest.permission.CAMERA};
+                        // show popup for runtime permission
+                        requestPermissions(permissions,PERMISSION_CAMERA_CODE);
+
+                    }
+                    else{
+                        // permission already granted
+                        takePicture();
+
+                    }
+                }
+                else{
+                    // system os is less then marshmallow
+                    takePicture();
+                }
+
+            }
+        });
+
 
 
         btnProgress.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                final Bitmap myBitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
-                imageView.setImageBitmap(myBitmap);
+                if(processingGranted){
+                    final Bitmap myBitmap = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
+                    imageView.setImageBitmap(myBitmap);
 
-                rectPaint.setStrokeWidth(5);
-                rectPaint.setColor(Color.WHITE);
-                rectPaint.setStyle(Paint.Style.STROKE);
+                    rectPaint.setStrokeWidth(5);
+                    rectPaint.setColor(Color.WHITE);
+                    rectPaint.setStyle(Paint.Style.STROKE);
 
-                final Bitmap tempBitmap = Bitmap.createBitmap(myBitmap.getWidth(),myBitmap.getHeight(), Bitmap.Config.RGB_565);
-                canvas  = new Canvas(tempBitmap);
-                canvas.drawBitmap(myBitmap,0,0,null);
-                FaceDetector faceDetector = new FaceDetector.Builder(getApplicationContext())
-                        .setTrackingEnabled(false)
-                        .setLandmarkType(FaceDetector.ALL_LANDMARKS)
-                        .setMode(FaceDetector.FAST_MODE)
-                        .build();
+                    final Bitmap tempBitmap = Bitmap.createBitmap(myBitmap.getWidth(),myBitmap.getHeight(), Bitmap.Config.RGB_565);
+                    canvas  = new Canvas(tempBitmap);
+                    canvas.drawBitmap(myBitmap,0,0,null);
+                    FaceDetector faceDetector = new FaceDetector.Builder(getApplicationContext())
+                            .setTrackingEnabled(false)
+                            .setLandmarkType(FaceDetector.ALL_LANDMARKS)
+                            .setMode(FaceDetector.FAST_MODE)
+                            .build();
 
-                if(!faceDetector.isOperational())
-                {
-                    Toast.makeText(MainActivity.this, "Face Detector could not be set up on your device", Toast.LENGTH_SHORT).show();
-                    return;
+                    if(!faceDetector.isOperational())
+                    {
+                        Toast.makeText(MainActivity.this, "Face Detector could not be set up on your device", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
+                    SparseArray<Face> sparseArray = faceDetector.detect(frame);
+
+                    if(sparseArray.size() == 0 ){
+                        Toast.makeText(MainActivity.this, "there is no one in this picture", Toast.LENGTH_SHORT).show();
+                    }else{
+                        Face face = sparseArray.valueAt(0);
+                        int x=(int)face.getPosition().x;
+                        int y =(int)face.getPosition().y;
+                        int x2 = (int) face.getWidth();
+                        int y2=(int)face.getHeight();
+                        RectF rectF = new RectF(x,y,x2,y2);
+                        canvas.drawRoundRect(rectF,2,2,rectPaint);
+                        int x1 = x - x2*4/10;
+                        int y1 = y - y2*4/10;
+                        int width = x2 + x2*8/10 ;
+                        int height = y2 + y2*8/10;
+                        if(x1<0){ x1=0;}
+                        if(y1<0){y1=0;}
+                        if(x1+width > myBitmap.getWidth()){width = myBitmap.getWidth() - x1;}
+                        if(y1+height > myBitmap.getHeight()){height = myBitmap.getHeight() - y1;}
+                        Bitmap cropedBitmap = Bitmap.createBitmap(myBitmap,x1,y1,width,height);
+                        imageView.setImageBitmap(cropedBitmap);
+                        imageProcessing(cropedBitmap);
+                    }
+                    processingGranted = false;
                 }
-                Frame frame = new Frame.Builder().setBitmap(myBitmap).build();
-                SparseArray<Face> sparseArray = faceDetector.detect(frame);
-
-                Face face = sparseArray.valueAt(0);
-                int x1=(int)face.getPosition().x-400;
-                int y1 =(int)face.getPosition().y-400;
-                int x2 = (int) (x1+face.getWidth()+800);
-                int y2=(int)(y1+face.getHeight()+800);
-                RectF rectF = new RectF(x1,y1,x2,y2);
-                canvas.drawRoundRect(rectF,2,2,rectPaint);
-
-                if(x1>=0 && y1>=0 && x2-x1!=0 && y2-y1!=0){
-                    Bitmap cropedBitmap = Bitmap.createBitmap(myBitmap,x1,y1,x2-x1,y2-y1);
-                    imageView.setImageBitmap(cropedBitmap);
-                    imageProcessing(cropedBitmap);
-                }else{
-                    imageProcessing(myBitmap);
+                else{
+                    Toast.makeText(MainActivity.this, "take or upload a picture", Toast.LENGTH_SHORT).show();
                 }
+
 
             }
         });
@@ -193,7 +248,12 @@ public class MainActivity extends AppCompatActivity {
         // Running inference
         if( tflite != null) {
             tflite.run(tImage.getBuffer(), probabilityBuffer.getBuffer().rewind());
-            textView.setText(probabilityBuffer.getFloatArray()[0]+"");
+            if(probabilityBuffer.getFloatArray()[0]>0.5){
+                textView.setText("male");
+            }
+            else{
+                textView.setText("female");
+            }
         }
 
 
@@ -204,6 +264,11 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType("image/*");
         startActivityForResult(intent, IMAGE_PICK_CODE);
+    }
+
+    private void takePicture(){
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        startActivityForResult(intent,IMAGE_CAMERA_CODE);
     }
 
     @Override
@@ -217,7 +282,19 @@ public class MainActivity extends AppCompatActivity {
                     //permission denied
                     Toast.makeText(this,"Permission denied!",Toast.LENGTH_SHORT).show();
                 }
+                break;
             }
+            case PERMISSION_CAMERA_CODE:{
+                if(grantResults.length > 0 && grantResults[0]==PackageManager.PERMISSION_GRANTED){
+                    takePicture();
+                }
+                else{
+                    //permission denied
+                    Toast.makeText(this,"Permission denied!",Toast.LENGTH_SHORT).show();
+                }
+                break;
+            }
+
         }
     }
 
@@ -227,9 +304,22 @@ public class MainActivity extends AppCompatActivity {
         if(resultCode == RESULT_OK && requestCode == IMAGE_PICK_CODE){
             //set image to image view
             imageView.setImageURI(data.getData());
+            processingGranted = true;
         }
+        if (requestCode == IMAGE_CAMERA_CODE){
+            Bitmap bitmap = (Bitmap) data.getExtras().get("data");
+            bitmap = rotateImage(bitmap,270);
+            imageView.setImageBitmap(bitmap);
+            processingGranted = true;
+        }
+    }
 
 
+    public static Bitmap rotateImage(Bitmap source, float angle) {
+        Matrix matrix = new Matrix();
+        matrix.postRotate(angle);
+        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
+                matrix, true);
     }
 
 

@@ -1,42 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
+    android:gravity="center_horizontal"
     tools:context=".MainActivity">
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:src="@drawable/ic_image_black_24dp"
-        android:layout_width="350dp"
-        android:layout_height="450dp"
-        tools:ignore="MissingConstraints" />
-
-    <Button
-        android:id="@+id/btnUpload"
-        android:text="Upload image"
-        android:layout_below="@id/btnUpload"
-        android:layout_width="250dp"
+    <LinearLayout
+        android:id="@+id/boutons"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="10dp"
-        tools:ignore="MissingConstraints" />
+        android:orientation="vertical">
 
-    <Button
-        android:id="@+id/btnProgress"
-        android:text="Process"
-        android:layout_below="@id/imageView"
-        android:layout_width="250dp"
-        android:layout_height="wrap_content"
-        tools:ignore="MissingConstraints" />
+        <LinearLayout
+            android:id="@+id/bouton"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_below="@id/textView"
-        android:layout_width="250dp"
-        android:layout_height="94dp"/>
+            <Button
+                android:id="@+id/btnCamera"
+                android:layout_width="fill_parent"
+                android:layout_height="80dp"
+                android:layout_weight="50"
+                android:background="@android:color/holo_blue_light"
+                android:text="Open Camera"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btnUpload"
+                android:layout_width="fill_parent"
+                android:layout_height="80dp"
+                android:layout_weight="50"
+                android:background="@android:color/holo_blue_light"
+                android:text="Upload image"
+                android:textColor="@android:color/white" />
 
 
-</LinearLayout>
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/imageView"
+            android:layout_width="350dp"
+            android:layout_height="450dp"
+            android:layout_gravity="center"
+            android:layout_margin="20dp"
+            android:src="@drawable/ic_image_black_24dp"
+            tools:ignore="MissingConstraints" />
+
+        <Button
+            android:id="@+id/btnProgress"
+            android:layout_width="250dp"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_weight="50"
+            android:background="@android:color/holo_blue_light"
+            android:text="Process"
+            android:textColor="@android:color/white" />
+
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="250dp"
+            android:layout_height="50dp"
+            android:layout_margin="20dp"
+            android:layout_gravity="center"
+            android:layout_below="@id/textView" />
+    </LinearLayout>
+
+
+</RelativeLayout>
