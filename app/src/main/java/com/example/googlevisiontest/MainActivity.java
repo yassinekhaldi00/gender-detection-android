@@ -305,12 +305,14 @@ public class MainActivity extends AppCompatActivity {
             //set image to image view
             imageView.setImageURI(data.getData());
             processingGranted = true;
+            textView.setText("");
         }
         if (requestCode == IMAGE_CAMERA_CODE){
             Bitmap bitmap = (Bitmap) data.getExtras().get("data");
-            bitmap = rotateImage(bitmap,270);
+            bitmap = rotateImage(bitmap,0);
             imageView.setImageBitmap(bitmap);
             processingGranted = true;
+            textView.setText("");
         }
     }
 
