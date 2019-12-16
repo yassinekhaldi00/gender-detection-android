@@ -44,7 +44,11 @@
         <ImageView
             android:id="@+id/imageView"
             android:layout_width="350dp"
+<<<<<<< HEAD
             android:layout_height="250dp"
+=======
+            android:layout_height="371dp"
+>>>>>>> refs/remotes/origin/master
             android:layout_gravity="center"
             android:layout_margin="20dp"
             android:src="@drawable/ic_image_black_24dp"
@@ -64,9 +68,9 @@
             android:id="@+id/textView"
             android:layout_width="250dp"
             android:layout_height="50dp"
-            android:layout_margin="20dp"
+            android:layout_below="@id/textView"
             android:layout_gravity="center"
-            android:layout_below="@id/textView" />
+            android:layout_margin="20dp" />
     </LinearLayout>
 
 
