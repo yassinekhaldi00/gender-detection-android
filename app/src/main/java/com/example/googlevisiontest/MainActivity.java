@@ -17,15 +17,11 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
-import android.hardware.Camera;
-import android.media.ExifInterface;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.util.SparseArray;
-import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -53,13 +49,12 @@ import android.app.Activity;
 
 import android.os.Bundle;
 
-import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -230,14 +225,12 @@ public class MainActivity extends AppCompatActivity {
         tImage.load(bitmap);
         tImage = imageProcessor.process(tImage);
 
+        String textToDisplay = "";
 
-        // Create a container for the result and specify that this is a quantized model.
-        // Hence, the 'DataType' is defined as UINT8 (8-bit unsigned integer)
-        TensorBuffer probabilityBuffer =
-                TensorBuffer.createFixedSize(new int[]{1, 1}, DataType.FLOAT32);
 
-        // Initialise the model
-        Interpreter tflite =null;
+        // GENDER DETECTION
+
+        Interpreter tflite = null;
         try{
             tflite = new Interpreter(loadModelFile(MainActivity.this,"genderModel.tflite"));
         } catch (IOException e){
@@ -245,19 +238,56 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
+        // Create a container for the result and specify that this is a quantized model.
+        // Hence, the 'DataType' is defined as UINT8 (8-bit unsigned integer)
+        int[] probabilityShape = tflite.getOutputTensor(0).shape();
+        DataType probaDataType = tflite.getOutputTensor(0).dataType();
+
+        TensorBuffer probabilityBuffer =
+                TensorBuffer.createFixedSize(probabilityShape, probaDataType);
+
         // Running inference
         if( tflite != null) {
             tflite.run(tImage.getBuffer(), probabilityBuffer.getBuffer().rewind());
-            if(probabilityBuffer.getFloatArray()[0]>0.5){
-                textView.setText("male");
-            }
-            else{
-                textView.setText("female");
-            }
+            if(probabilityBuffer.getFloatArray()[0]>0.5)
+                textToDisplay = "male";
+            else
+                textToDisplay = "female";
         }
 
+        // AGE DETECTION
 
+        Interpreter tflite2 = null;
 
+        try{
+            tflite2 = new Interpreter(loadModelFile(MainActivity.this,"age_recognition.tflite"));
+        } catch (IOException e){
+            Log.e("tfliteSupport", "Error reading model", e);
+
+        }
+
+        probabilityShape = tflite.getOutputTensor(0).shape();
+        probaDataType = tflite.getOutputTensor(0).dataType();
+
+        TensorBuffer pb =
+                TensorBuffer.createFixedSize(probabilityShape, probaDataType);
+
+        String age = "";
+
+        // Running inference
+        if( tflite != null) {
+            tflite.run(tImage.getBuffer(), probabilityBuffer.getBuffer().rewind());
+            switch (getIndexOfLargest(pb.getFloatArray())) {
+                case 0: age = "0-19 yo"; break;
+                case 1: age = "20-39 yo"; break;
+                case 2: age = "40-59 yo"; break;
+                case 3: age = "60-79 yo"; break;
+                case 4: age = "80-99 yo"; break;
+            }
+            textToDisplay += ' ' + age;
+        }
+
+        textView.setText(textToDisplay);
     }
 
     private void pickImageFromGallery(){
@@ -322,6 +352,16 @@ public class MainActivity extends AppCompatActivity {
                 matrix, true);
     }
 
+    public int getIndexOfLargest( float[] array )
+    {
+        if ( array == null || array.length == 0 ) return -1; // null or empty
 
+        int largest = 0;
+        for ( int i = 1; i < array.length; i++ )
+        {
+            if ( array[i] > array[largest] ) largest = i;
+        }
+        return largest; // position of the first largest found
+    }
 }
 
